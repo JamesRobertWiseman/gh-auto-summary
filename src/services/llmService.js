@@ -93,39 +93,69 @@ export class LLMService {
     const conventionalCommits = [];
     const regularCommits = [];
 
-    commits.forEach((commit) => {
-      const message = commit.message.split("\n")[0];
-      const match = message.match(CONVENTIONAL_COMMIT_REGEX);
+    // Add safety check for commits array
+    if (!Array.isArray(commits)) {
+      logger.warn("Commits is not an array:", typeof commits);
+      return { conventionalCommits: [], regularCommits: [] };
+    }
 
-      if (match) {
-        const [, type, scope, description] = match;
-        // Only add if type and description are defined
-        if (type && description) {
-          conventionalCommits.push({
-            type: type,
-            scope: scope ? scope.slice(1, -1) : null,
-            description: description,
-            originalMessage: message,
-            sha: commit.sha,
-            author: commit.author,
-          });
+    commits.forEach((commit, index) => {
+      try {
+        // Safety check for commit object
+        if (!commit || typeof commit !== "object") {
+          logger.warn(`Commit at index ${index} is invalid:`, commit);
+          return;
+        }
+
+        // Safety check for commit message
+        if (!commit.message || typeof commit.message !== "string") {
+          logger.warn(`Commit at index ${index} has invalid message:`, commit);
+          return;
+        }
+
+        const message = commit.message.split("\n")[0];
+        const match = message.match(CONVENTIONAL_COMMIT_REGEX);
+
+        if (match) {
+          const [, type, scope, description] = match;
+          // Only add if type and description are defined
+          if (type && description) {
+            conventionalCommits.push({
+              type: type,
+              scope: scope ? scope.slice(1, -1) : null,
+              description: description,
+              originalMessage: message,
+              sha: commit.sha || "unknown",
+              author: commit.author || "unknown",
+            });
+          } else {
+            // Treat as regular commit if parsing failed
+            logger.debug(`Conventional commit parsing failed for: ${message}`);
+            regularCommits.push({
+              message: message,
+              sha: commit.sha || "unknown",
+              author: commit.author || "unknown",
+            });
+          }
         } else {
-          // Treat as regular commit if parsing failed
           regularCommits.push({
             message: message,
-            sha: commit.sha,
-            author: commit.author,
+            sha: commit.sha || "unknown",
+            author: commit.author || "unknown",
           });
         }
-      } else {
-        regularCommits.push({
-          message: message,
-          sha: commit.sha,
-          author: commit.author,
-        });
+      } catch (error) {
+        logger.error(
+          `Error processing commit at index ${index}:`,
+          error.message
+        );
+        logger.error("Commit data:", commit);
       }
     });
 
+    logger.debug(
+      `Parsed ${conventionalCommits.length} conventional commits and ${regularCommits.length} regular commits`
+    );
     return { conventionalCommits, regularCommits };
   }
 
@@ -174,20 +204,27 @@ export class LLMService {
   }
 
   _createSummaryPrompt(prData, diff, commits) {
-    const truncatedDiff =
-      diff.length > PR_CONSTANTS.MAX_DIFF_LENGTH
-        ? `${diff.slice(0, PR_CONSTANTS.MAX_DIFF_LENGTH)}\n... (truncated)`
-        : diff;
+    try {
+      logger.debug(
+        `Creating summary prompt with ${commits?.length || 0} commits`
+      );
 
-    const { conventionalCommits, regularCommits } =
-      this._parseConventionalCommits(commits);
-    const conventionalCommitsFormatted =
-      this._formatConventionalCommits(conventionalCommits);
-    const regularCommitsFormatted = this._formatRegularCommits(regularCommits);
+      const truncatedDiff =
+        diff && diff.length > PR_CONSTANTS.MAX_DIFF_LENGTH
+          ? `${diff.slice(0, PR_CONSTANTS.MAX_DIFF_LENGTH)}\n... (truncated)`
+          : diff || "No diff provided";
 
-    const hasConventionalCommits = conventionalCommits.length > 0;
+      const { conventionalCommits, regularCommits } =
+        this._parseConventionalCommits(commits || []);
+      const conventionalCommitsFormatted =
+        this._formatConventionalCommits(conventionalCommits);
+      const regularCommitsFormatted =
+        this._formatRegularCommits(regularCommits);
 
-    return `Please analyze this pull request and generate:
+      const hasConventionalCommits = conventionalCommits.length > 0;
+      const commitsLength = Array.isArray(commits) ? commits.length : 0;
+
+      return `Please analyze this pull request and generate:
 
 1. **Summary**: A concise summary of what this PR does
 2. **Changelog**: A well-structured changelog entry
@@ -198,7 +235,7 @@ PR Details:
 - Files changed: ${prData.changed_files}
 - Additions: ${prData.additions}
 - Deletions: ${prData.deletions}
-- Number of commits: ${commits.length}
+- Number of commits: ${commitsLength}
 
 ${conventionalCommitsFormatted}
 ${regularCommitsFormatted}
@@ -231,6 +268,10 @@ ${
     ? "- Follow conventional commit categorization (Added, Fixed, Changed, etc.)"
     : "- Use logical grouping for non-conventional commits"
 }`;
+    } catch (error) {
+      logger.error("Error creating summary prompt:", error.message);
+      return "Error creating summary prompt. Please check the input data.";
+    }
   }
 
   _createErrorSummary(errorMessage) {
