@@ -99,14 +99,24 @@ export class LLMService {
 
       if (match) {
         const [, type, scope, description] = match;
-        conventionalCommits.push({
-          type: type,
-          scope: scope ? scope.slice(1, -1) : null,
-          description: description,
-          originalMessage: message,
-          sha: commit.sha,
-          author: commit.author,
-        });
+        // Only add if type and description are defined
+        if (type && description) {
+          conventionalCommits.push({
+            type: type,
+            scope: scope ? scope.slice(1, -1) : null,
+            description: description,
+            originalMessage: message,
+            sha: commit.sha,
+            author: commit.author,
+          });
+        } else {
+          // Treat as regular commit if parsing failed
+          regularCommits.push({
+            message: message,
+            sha: commit.sha,
+            author: commit.author,
+          });
+        }
       } else {
         regularCommits.push({
           message: message,
@@ -123,21 +133,30 @@ export class LLMService {
     if (conventionalCommits.length === 0) return "";
 
     const groupedByType = conventionalCommits.reduce((acc, commit) => {
-      if (!acc[commit.type]) {
-        acc[commit.type] = [];
+      // Ensure commit has a valid type
+      if (commit && commit.type) {
+        if (!acc[commit.type]) {
+          acc[commit.type] = [];
+        }
+        acc[commit.type].push(commit);
       }
-      acc[commit.type].push(commit);
       return acc;
     }, {});
 
     let formatted = "Conventional Commits:\n";
     Object.entries(groupedByType).forEach(([type, commits]) => {
-      const changeType = CONVENTIONAL_COMMIT_TYPES[type] || type.toUpperCase();
-      formatted += `\n${changeType}:\n`;
-      commits.forEach((commit) => {
-        const scope = commit.scope ? `(${commit.scope}) ` : "";
-        formatted += `- ${scope}${commit.description} (${commit.sha})\n`;
-      });
+      // Additional safety check
+      if (type && commits && commits.length > 0) {
+        const changeType =
+          CONVENTIONAL_COMMIT_TYPES[type] || type.toUpperCase();
+        formatted += `\n${changeType}:\n`;
+        commits.forEach((commit) => {
+          if (commit && commit.description) {
+            const scope = commit.scope ? `(${commit.scope}) ` : "";
+            formatted += `- ${scope}${commit.description} (${commit.sha})\n`;
+          }
+        });
+      }
     });
 
     return formatted;

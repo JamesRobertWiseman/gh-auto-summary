@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:local": "node test/local-test-server.js",
+    "test:webhook": "node test/test-webhook.js"
   },
   "type": "module",
   "dependencies": {

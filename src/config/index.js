@@ -19,9 +19,22 @@ export const config = {
     name: "GitHub Auto Summary Extension",
     version: "1.0.0",
   },
+  // Test mode configuration
+  test: {
+    mockMode:
+      process.env.NODE_ENV === "development" &&
+      process.env.MOCK_GITHUB_API === "true",
+    skipGitHubAPI: process.env.SKIP_GITHUB_API === "true",
+  },
 };
 
 export function validateConfig() {
+  // Skip validation in test mode
+  if (config.test.mockMode || config.test.skipGitHubAPI) {
+    console.log("⚠️  Running in test mode - skipping GitHub App validation");
+    return;
+  }
+
   const required = [
     { key: "GITHUB_APP_ID", value: config.github.appId },
     { key: "GITHUB_PRIVATE_KEY", value: config.github.privateKey },

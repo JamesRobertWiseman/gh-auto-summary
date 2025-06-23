@@ -1,10 +1,20 @@
 import express from "express";
+import { config } from "../config/index.js";
 import { verifyGitHubWebhook } from "../middleware/webhookVerification.js";
+import { GitHubService } from "../services/githubService.js";
 import { prService } from "../services/prService.js";
 import { createLogger } from "../utils/logger.js";
 
 const router = express.Router();
 const logger = createLogger("WebhookRoutes");
+
+// Import mock service for testing
+async function getMockGitHubService() {
+  const { MockGitHubService } = await import(
+    "../services/mockGitHubService.js"
+  );
+  return new MockGitHubService(12345);
+}
 
 router.post(
   "/",
@@ -98,7 +108,14 @@ async function handlePullRequestEvent(payload, res) {
     const owner = repository.owner.login;
     const repo = repository.name;
 
-    const githubService = new GitHubService(installation.id);
+    // Use mock service in test mode
+    let githubService;
+    if (config.test.mockMode || config.test.skipGitHubAPI) {
+      logger.info("🧪 Using mock GitHub service for testing");
+      githubService = await getMockGitHubService();
+    } else {
+      githubService = new GitHubService(installation.id);
+    }
 
     const result = await prService.processPullRequest(
       owner,
