@@ -6,25 +6,36 @@ const logger = createLogger("GitHubAppService");
 
 export class GitHubAppService {
   constructor() {
-    logger.debug(`Initializing GitHub App with ID: ${config.github.appId}`);
-    logger.debug(
-      `Private key length: ${config.github.privateKey?.length || 0} characters`
-    );
-    logger.debug(
-      `Private key starts with: ${
-        config.github.privateKey?.substring(0, 30) || "undefined"
-      }...`
-    );
-    logger.debug(`Webhook secret set: ${!!config.github.webhookSecret}`);
+    try {
+      console.log("🔧 GitHubAppService constructor starting...");
+      logger.debug(`Initializing GitHub App with ID: ${config.github.appId}`);
+      logger.debug(
+        `Private key length: ${
+          config.github.privateKey?.length || 0
+        } characters`
+      );
+      logger.debug(
+        `Private key starts with: ${
+          config.github.privateKey?.substring(0, 30) || "undefined"
+        }...`
+      );
+      logger.debug(`Webhook secret set: ${!!config.github.webhookSecret}`);
 
-    this.app = new App({
-      appId: config.github.appId,
-      privateKey: config.github.privateKey,
-      webhooks: {
-        secret: config.github.webhookSecret,
-      },
-    });
-    logger.debug(`GitHub App instance created successfully`);
+      console.log("🔧 Creating GitHub App instance...");
+      this.app = new App({
+        appId: config.github.appId,
+        privateKey: config.github.privateKey,
+        webhooks: {
+          secret: config.github.webhookSecret,
+        },
+      });
+      console.log("✅ GitHub App instance created successfully");
+      logger.debug(`GitHub App instance created successfully`);
+    } catch (error) {
+      console.error("❌ Error in GitHubAppService constructor:", error.message);
+      logger.error("Error in GitHubAppService constructor:", error.message);
+      throw error;
+    }
   }
 
   async getInstallationOctokit(installationId) {
@@ -116,4 +127,19 @@ export class GitHubAppService {
   }
 }
 
-export const githubAppService = new GitHubAppService();
+// Create singleton instance with error handling
+let githubAppService;
+try {
+  console.log("🚀 Creating GitHubAppService singleton...");
+  githubAppService = new GitHubAppService();
+  console.log("✅ GitHubAppService singleton created successfully");
+} catch (error) {
+  console.error(
+    "❌ Failed to create GitHubAppService singleton:",
+    error.message
+  );
+  console.error("Error stack:", error.stack);
+  throw error;
+}
+
+export { githubAppService };
