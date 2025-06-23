@@ -1,31 +1,44 @@
 {
-  "name": "github-pr-auto-summary",
-  "private": "true",
-  "description": "A GitHub App that automatically generates PR summaries and changelogs using GitHub Copilot",
-  "version": "1.0.0",
+  "name": "github-auto-summary-copilot-agent",
+  "version": "2.0.0",
+  "description": "A GitHub Copilot Extension agent that provides intelligent pull request analysis and summaries",
+  "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:local": "node test/local-test-server.js",
-    "test:webhook": "node test/test-webhook.js"
-  },
-  "type": "module",
-  "dependencies": {
-    "@octokit/core": "^6.1.2",
-    "@octokit/app": "^15.0.0",
-    "@octokit/auth-app": "^7.0.0",
-    "express": "^4.19.2",
-    "dotenv": "^16.3.1"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "github",
     "copilot",
-    "automation",
-    "pr",
+    "extension",
+    "agent",
+    "pull-request",
     "summary",
-    "changelog"
+    "ai",
+    "automation"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@octokit/auth-app": "^7.1.3",
+    "@octokit/core": "^6.1.2",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/github-auto-summary-copilot-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/github-auto-summary-copilot-agent/issues"
+  },
+  "homepage": "https://github.com/yourusername/github-auto-summary-copilot-agent#readme"
 }

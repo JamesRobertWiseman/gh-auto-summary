@@ -7,16 +7,22 @@ export const config = {
   github: {
     appId: parseInt(process.env.GITHUB_APP_ID, 10),
     privateKey: process.env.GITHUB_PRIVATE_KEY,
-    webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     appSlug: process.env.GITHUB_APP_SLUG || "github-pr-auto-summary",
   },
-  api: {
-    copilotBaseUrl: "https://api.githubcopilot.com",
+  copilot: {
+    // OIDC configuration for token exchange (optional)
+    oidc: {
+      enabled: process.env.COPILOT_OIDC_ENABLED === "true",
+      jwksUrl:
+        "https://github.com/login/oauth/.well-known/openid_configuration",
+      issuer: "https://github.com/login/oauth",
+      audience: process.env.GITHUB_CLIENT_ID,
+    },
   },
   app: {
-    name: "GitHub Auto Summary Extension",
+    name: "GitHub Auto Summary Copilot Agent",
     version: "1.0.0",
   },
   // Test mode configuration
@@ -38,7 +44,6 @@ export function validateConfig() {
   const required = [
     { key: "GITHUB_APP_ID", value: config.github.appId },
     { key: "GITHUB_PRIVATE_KEY", value: config.github.privateKey },
-    { key: "GITHUB_WEBHOOK_SECRET", value: config.github.webhookSecret },
   ];
 
   const missing = required.filter(({ value }) => !value);
@@ -47,4 +52,14 @@ export function validateConfig() {
     const missingKeys = missing.map(({ key }) => key).join(", ");
     throw new Error(`Missing required environment variables: ${missingKeys}`);
   }
+
+  console.log("🤖 Running as GitHub Copilot Extension Agent");
+
+  if (config.copilot.oidc.enabled && !config.github.clientId) {
+    console.warn(
+      "⚠️  GITHUB_CLIENT_ID not set - OIDC validation will be limited"
+    );
+  }
+
+  console.log("✅ Copilot Agent will use X-GitHub-Token from requests");
 }

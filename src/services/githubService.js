@@ -4,240 +4,229 @@ import { githubAppService } from "./githubAppService.js";
 const logger = createLogger("GitHubService");
 
 export class GitHubService {
-  constructor(installationId) {
+  constructor(installationId = null) {
     this.installationId = installationId;
-    this.octokit = null;
+    this.userToken = null; // For Copilot Extension mode
+  }
+
+  /**
+   * Set a user token for Copilot Extension mode
+   * @param {string} token - The X-GitHub-Token from Copilot platform
+   */
+  setUserToken(token) {
+    this.userToken = token;
+    logger.debug("User token set for Copilot Extension mode");
   }
 
   async getOctokit() {
-    if (!this.octokit) {
-      try {
-        logger.debug(
-          `Getting installation octokit for installation: ${this.installationId}`
-        );
-        this.octokit = await githubAppService.getInstallationOctokit(
-          this.installationId
-        );
-        logger.debug(`Successfully created installation octokit`);
-      } catch (error) {
-        logger.error(
-          `Failed to get installation octokit for ${this.installationId}:`,
-          error.message
-        );
-        throw error;
-      }
+    // If we have a user token (Copilot Extension mode), use it directly
+    if (this.userToken) {
+      const { Octokit } = await import("@octokit/core");
+      return new Octokit({
+        auth: this.userToken,
+      });
     }
-    return this.octokit;
+
+    // Otherwise, use installation-based authentication
+    if (!this.installationId) {
+      throw new Error("Installation ID is required for GitHub App mode");
+    }
+
+    try {
+      return await githubAppService.getInstallationOctokit(this.installationId);
+    } catch (error) {
+      logger.error("Failed to get installation octokit:", error.message);
+      throw error;
+    }
   }
 
   async getInstallationToken() {
+    // If we're in Copilot Extension mode, we don't need installation tokens
+    if (this.userToken) {
+      return this.userToken;
+    }
+
     try {
       logger.debug(
         `Getting installation token for installation: ${this.installationId}`
       );
 
-      // Alternative approach: Use the GitHub App JWT to directly create an installation token
+      // Use the GitHub App service directly to make a direct API call
       // This bypasses the problematic auth function in @octokit/auth-app
+      const jwtToken = await githubAppService.app.octokit.auth({ type: "app" });
 
-      // Get the app JWT token
-      const appAuth = await githubAppService.app.octokit.auth({ type: "app" });
-      if (!appAuth || !appAuth.token) {
-        throw new Error("Failed to get app JWT token");
-      }
-
-      logger.debug("Got app JWT token, creating installation access token...");
-
-      // Make direct API call to create installation access token
-      const response = await githubAppService.app.octokit.request(
-        "POST /app/installations/{installation_id}/access_tokens",
+      const response = await fetch(
+        `https://api.github.com/app/installations/${this.installationId}/access_tokens`,
         {
-          installation_id: this.installationId,
+          method: "POST",
           headers: {
-            authorization: `Bearer ${appAuth.token}`,
+            Authorization: `Bearer ${jwtToken.token}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "GitHub-Auto-Summary-App",
           },
         }
       );
 
-      if (!response.data || !response.data.token) {
-        throw new Error("Failed to get installation token from API response");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `GitHub API error: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.token) {
+        throw new Error("No token received from GitHub API");
       }
 
       logger.debug(
-        "Successfully retrieved installation token via direct API call"
+        "Successfully obtained installation token via direct API call"
       );
-      return response.data.token;
+      return data.token;
     } catch (error) {
-      logger.error(`Failed to get installation token:`, error.message);
-      logger.error(`Error stack:`, error.stack);
+      logger.error("Failed to get installation token:", error.message);
+      logger.error("Error stack:", error.stack);
       throw error;
     }
   }
 
-  async getUser() {
+  async getPullRequest(owner, repo, prNumber) {
     try {
       const octokit = await this.getOctokit();
-      const response = await octokit.request("GET /user");
-      return response.data;
-    } catch (error) {
-      logger.error("Failed to get user information:", error.message);
-      throw error;
-    }
-  }
-
-  async getPullRequestDiff(owner, repo, pullNumber) {
-    try {
-      logger.debug(`Fetching diff for PR #${pullNumber} in ${owner}/${repo}`);
-      const octokit = await this.getOctokit();
+      logger.debug(`Getting PR #${prNumber} for ${owner}/${repo}`);
 
       const { data } = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}",
         {
           owner,
           repo,
-          pull_number: pullNumber,
-          mediaType: {
-            format: "diff",
-          },
+          pull_number: prNumber,
         }
       );
 
+      logger.debug(`Successfully retrieved PR #${prNumber}`);
       return data;
     } catch (error) {
-      logger.error(
-        `Failed to fetch PR diff for #${pullNumber}:`,
-        error.message
-      );
+      logger.error(`Failed to get PR #${prNumber}:`, error.message);
       throw error;
     }
   }
 
-  async getPullRequestCommits(owner, repo, pullNumber) {
+  async getPullRequestDiff(owner, repo, prNumber) {
     try {
-      logger.debug(
-        `Fetching commits for PR #${pullNumber} in ${owner}/${repo}`
-      );
       const octokit = await this.getOctokit();
+      logger.debug(`Getting diff for PR #${prNumber} in ${owner}/${repo}`);
+
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+        {
+          owner,
+          repo,
+          pull_number: prNumber,
+          headers: {
+            accept: "application/vnd.github.v3.diff",
+          },
+        }
+      );
+
+      logger.debug(`Successfully retrieved diff for PR #${prNumber}`);
+      return data;
+    } catch (error) {
+      logger.error(`Failed to get diff for PR #${prNumber}:`, error.message);
+      throw error;
+    }
+  }
+
+  async getPullRequestCommits(owner, repo, prNumber) {
+    try {
+      const octokit = await this.getOctokit();
+      logger.debug(`Getting commits for PR #${prNumber} in ${owner}/${repo}`);
 
       const { data } = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}/commits",
         {
           owner,
           repo,
-          pull_number: pullNumber,
+          pull_number: prNumber,
         }
       );
 
-      // Add safety checks for commit data mapping
-      logger.debug(`Raw commits data length: ${data?.length || 0}`);
-      if (data && data.length > 0) {
-        logger.debug(
-          `First raw commit structure:`,
-          JSON.stringify(data[0], null, 2)
-        );
-      }
-
-      const commits = data
-        .map((commit, index) => {
-          try {
-            // Safety checks for commit structure
-            if (!commit) {
-              logger.warn(`Commit at index ${index} is null/undefined`);
-              return null;
-            }
-
-            if (!commit.sha) {
-              logger.warn(`Commit at index ${index} missing sha:`, commit);
-              return null;
-            }
-
-            if (!commit.commit) {
-              logger.warn(
-                `Commit at index ${index} missing commit object:`,
-                commit
-              );
-              return null;
-            }
-
-            if (!commit.commit.message) {
-              logger.warn(
-                `Commit at index ${index} missing commit message:`,
-                commit.commit
-              );
-              return null;
-            }
-
-            if (!commit.commit.author) {
-              logger.warn(
-                `Commit at index ${index} missing commit author:`,
-                commit.commit
-              );
-              return null;
-            }
-
-            return {
-              sha: commit.sha.substring(0, 7),
-              message: commit.commit.message,
-              author: commit.commit.author.name || "Unknown",
-              date: commit.commit.author.date || new Date().toISOString(),
-            };
-          } catch (error) {
-            logger.error(
-              `Error processing commit at index ${index}:`,
-              error.message
-            );
-            logger.error(`Problematic commit data:`, commit);
-            return null;
-          }
-        })
-        .filter((commit) => commit !== null); // Remove null entries
+      // Format commits consistently
+      const formattedCommits = data.map((commit) => ({
+        sha: commit.sha.substring(0, 7),
+        message: commit.commit.message,
+        author: commit.commit.author.name,
+        date: commit.commit.author.date,
+      }));
 
       logger.debug(
-        `Fetched ${commits.length} valid commits for PR #${pullNumber}`
+        `Successfully retrieved ${formattedCommits.length} commits for PR #${prNumber}`
       );
-      return commits;
+      return formattedCommits;
     } catch (error) {
-      logger.error(
-        `Failed to fetch PR commits for #${pullNumber}:`,
-        error.message
-      );
+      logger.error(`Failed to get commits for PR #${prNumber}:`, error.message);
       throw error;
     }
   }
 
-  async updatePullRequest(owner, repo, pullNumber, updates) {
-    try {
-      logger.debug(`Updating PR #${pullNumber} in ${owner}/${repo}`);
-      const octokit = await this.getOctokit();
-
-      await octokit.request("PATCH /repos/{owner}/{repo}/pulls/{pull_number}", {
-        owner,
-        repo,
-        pull_number: pullNumber,
-        ...updates,
-      });
-
-      logger.info(`Successfully updated PR #${pullNumber}`);
-    } catch (error) {
-      logger.error(`Failed to update PR #${pullNumber}:`, error.message);
-      throw error;
-    }
-  }
-
-  async getPullRequest(owner, repo, pullNumber) {
+  async updatePullRequest(owner, repo, prNumber, updates) {
     try {
       const octokit = await this.getOctokit();
+      logger.debug(`Updating PR #${prNumber} in ${owner}/${repo}`);
+
       const { data } = await octokit.request(
-        "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+        "PATCH /repos/{owner}/{repo}/pulls/{pull_number}",
         {
           owner,
           repo,
-          pull_number: pullNumber,
+          pull_number: prNumber,
+          ...updates,
         }
       );
 
+      logger.info(`Successfully updated PR #${prNumber}`);
       return data;
     } catch (error) {
-      logger.error(`Failed to fetch PR #${pullNumber}:`, error.message);
+      logger.error(`Failed to update PR #${prNumber}:`, error.message);
+      throw error;
+    }
+  }
+
+  async getUserInfo() {
+    try {
+      const octokit = await this.getOctokit();
+      logger.debug("Getting user info");
+
+      const { data } = await octokit.request("GET /user");
+
+      logger.debug(`Successfully retrieved user info for ${data.login}`);
+      return data;
+    } catch (error) {
+      logger.error("Failed to get user info:", error.message);
+      throw error;
+    }
+  }
+
+  async getRepository(owner, repo) {
+    try {
+      const octokit = await this.getOctokit();
+      logger.debug(`Getting repository info for ${owner}/${repo}`);
+
+      const { data } = await octokit.request("GET /repos/{owner}/{repo}", {
+        owner,
+        repo,
+      });
+
+      logger.debug(
+        `Successfully retrieved repository info for ${owner}/${repo}`
+      );
+      return data;
+    } catch (error) {
+      logger.error(
+        `Failed to get repository info for ${owner}/${repo}:`,
+        error.message
+      );
       throw error;
     }
   }
@@ -250,3 +239,5 @@ export class GitHubService {
     return new GitHubService(installationId);
   }
 }
+
+export const githubService = new GitHubService();
