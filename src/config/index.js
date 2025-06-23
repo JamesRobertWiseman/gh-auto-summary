@@ -5,7 +5,7 @@ dotenv.config();
 export const config = {
   port: Number(process.env.PORT || 3000),
   github: {
-    appId: process.env.GITHUB_APP_ID,
+    appId: parseInt(process.env.GITHUB_APP_ID, 10),
     privateKey: process.env.GITHUB_PRIVATE_KEY,
     webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
     clientId: process.env.GITHUB_CLIENT_ID,

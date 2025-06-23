@@ -2,6 +2,9 @@
 console.log("🔍 Environment Variable Check:");
 console.log("NODE_ENV:", process.env.NODE_ENV);
 console.log("GITHUB_APP_ID:", process.env.GITHUB_APP_ID ? "SET" : "NOT SET");
+console.log("GITHUB_APP_ID value:", process.env.GITHUB_APP_ID);
+console.log("GITHUB_APP_ID parsed:", parseInt(process.env.GITHUB_APP_ID, 10));
+console.log("GITHUB_APP_ID type:", typeof process.env.GITHUB_APP_ID);
 console.log(
   "GITHUB_PRIVATE_KEY:",
   process.env.GITHUB_PRIVATE_KEY
@@ -41,8 +44,13 @@ try {
   console.log("\n🧪 Testing GitHub App Creation:");
   const { App } = await import("@octokit/app");
 
+  const appId = parseInt(process.env.GITHUB_APP_ID, 10);
+  console.log("🔢 Parsed App ID:", appId);
+  console.log("🔢 App ID type:", typeof appId);
+  console.log("🔢 App ID is valid number:", !isNaN(appId));
+
   const app = new App({
-    appId: process.env.GITHUB_APP_ID,
+    appId: appId,
     privateKey: process.env.GITHUB_PRIVATE_KEY,
     webhooks: {
       secret: process.env.GITHUB_WEBHOOK_SECRET,
@@ -50,7 +58,8 @@ try {
   });
 
   console.log("✅ GitHub App instance created successfully");
-  console.log("App ID:", app.appId);
+  console.log("App ID from instance:", app.appId);
+  console.log("App ID type from instance:", typeof app.appId);
 } catch (error) {
   console.error("❌ Failed to create GitHub App instance:", error.message);
   console.error("Error stack:", error.stack);
