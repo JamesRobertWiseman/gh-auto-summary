@@ -42,10 +42,24 @@ export class PRService {
       ]);
 
       logger.debug(
-        `Retrieved ${commits.length} commits for PR #${pullRequest.number}`
+        `Retrieved ${commits?.length || 0} commits for PR #${
+          pullRequest.number
+        }`
       );
 
+      // Add detailed logging for debugging
+      logger.debug(`Commits data type: ${typeof commits}`);
+      logger.debug(`Commits is array: ${Array.isArray(commits)}`);
+      if (Array.isArray(commits) && commits.length > 0) {
+        logger.debug(
+          `First commit structure:`,
+          JSON.stringify(commits[0], null, 2)
+        );
+      }
+
+      logger.debug("Getting installation token...");
       const token = await githubService.getInstallationToken();
+      logger.debug("Token obtained, generating summary...");
 
       const generatedContent = await llmService.generatePRSummary(
         pullRequest,
@@ -53,6 +67,8 @@ export class PRService {
         commits,
         token
       );
+
+      logger.debug("Summary generated successfully");
 
       await this.updatePRWithSummary(
         owner,
@@ -67,8 +83,8 @@ export class PRService {
       return {
         success: true,
         message: "PR summary generated successfully",
-        commits: commits.length,
-        hasConventionalCommits: this._hasConventionalCommits(commits),
+        commits: Array.isArray(commits) ? commits.length : 0,
+        hasConventionalCommits: this._hasConventionalCommits(commits || []),
       };
     } catch (error) {
       logger.error(
@@ -118,11 +134,24 @@ export class PRService {
   }
 
   _hasConventionalCommits(commits) {
+    if (!Array.isArray(commits)) {
+      logger.warn(
+        "_hasConventionalCommits: commits is not an array",
+        typeof commits
+      );
+      return false;
+    }
+
     const conventionalCommitRegex =
       /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?\!?:\s(.+)/;
-    return commits.some((commit) =>
-      conventionalCommitRegex.test(commit.message.split("\n")[0])
-    );
+
+    return commits.some((commit) => {
+      if (!commit || !commit.message || typeof commit.message !== "string") {
+        logger.warn("Invalid commit in _hasConventionalCommits:", commit);
+        return false;
+      }
+      return conventionalCommitRegex.test(commit.message.split("\n")[0]);
+    });
   }
 
   isValidPRAction(action) {
