@@ -13,7 +13,7 @@ export class LLMService {
     this.baseUrl = config.api.copilotBaseUrl;
   }
 
-  async generatePRSummary(prData, diff, commits = []) {
+  async generatePRSummary(prData, diff, commits = [], token) {
     try {
       logger.debug(`Generating summary for PR: ${prData.title}`);
 
@@ -22,7 +22,7 @@ export class LLMService {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
-          authorization: `Bearer ${config.github.token}`,
+          authorization: `Bearer ${token}`,
           "content-type": "application/json",
         },
         body: JSON.stringify({
