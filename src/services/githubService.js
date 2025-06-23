@@ -35,28 +35,34 @@ export class GitHubService {
       logger.debug(
         `Getting installation token for installation: ${this.installationId}`
       );
-      const octokit = await this.getOctokit();
 
-      if (!octokit) {
-        throw new Error("Failed to get octokit instance");
+      // Use the GitHub App service directly to get the installation token
+      // This is more reliable than trying to extract it from the octokit instance
+      const installationOctokit = await githubAppService.getInstallationOctokit(
+        this.installationId
+      );
+
+      if (
+        !installationOctokit ||
+        typeof installationOctokit.auth !== "function"
+      ) {
+        throw new Error(
+          "Failed to get valid installation octokit with auth function"
+        );
       }
 
-      logger.debug(`Octokit auth type: ${typeof octokit.auth}`);
+      logger.debug("Calling installation octokit auth function...");
+      const auth = await installationOctokit.auth();
 
-      if (typeof octokit.auth === "function") {
-        const auth = await octokit.auth();
-        logger.debug(`Auth result type: ${typeof auth}`);
-        if (!auth || !auth.token) {
-          throw new Error("Auth function returned invalid token");
-        }
-        return auth.token;
-      } else if (octokit.auth && octokit.auth.token) {
-        return octokit.auth.token;
-      } else {
-        throw new Error("No valid auth token found");
+      if (!auth || !auth.token) {
+        throw new Error("Failed to get installation token from auth");
       }
+
+      logger.debug("Successfully retrieved installation token");
+      return auth.token;
     } catch (error) {
       logger.error(`Failed to get installation token:`, error.message);
+      logger.error(`Error stack:`, error.stack);
       throw error;
     }
   }
