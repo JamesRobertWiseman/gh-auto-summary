@@ -36,10 +36,22 @@ export class PRService {
     try {
       logger.info(`Processing PR #${pullRequest.number} in ${owner}/${repo}`);
 
+      logger.debug("Starting GitHub API calls...");
       const [diff, commits] = await Promise.all([
-        githubService.getPullRequestDiff(owner, repo, pullRequest.number),
-        githubService.getPullRequestCommits(owner, repo, pullRequest.number),
+        githubService
+          .getPullRequestDiff(owner, repo, pullRequest.number)
+          .catch((error) => {
+            logger.error("Error in getPullRequestDiff:", error.message);
+            throw error;
+          }),
+        githubService
+          .getPullRequestCommits(owner, repo, pullRequest.number)
+          .catch((error) => {
+            logger.error("Error in getPullRequestCommits:", error.message);
+            throw error;
+          }),
       ]);
+      logger.debug("GitHub API calls completed successfully");
 
       logger.debug(
         `Retrieved ${commits?.length || 0} commits for PR #${
