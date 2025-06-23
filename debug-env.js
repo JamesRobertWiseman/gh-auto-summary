@@ -49,17 +49,37 @@ try {
   console.log("🔢 App ID type:", typeof appId);
   console.log("🔢 App ID is valid number:", !isNaN(appId));
 
-  const app = new App({
+  // Test with explicit configuration
+  const config = {
     appId: appId,
     privateKey: process.env.GITHUB_PRIVATE_KEY,
-    webhooks: {
-      secret: process.env.GITHUB_WEBHOOK_SECRET,
-    },
+  };
+
+  console.log("🔧 App config:", {
+    appId: config.appId,
+    privateKeyLength: config.privateKey?.length,
+    privateKeyStart: config.privateKey?.substring(0, 30) + "...",
   });
+
+  const app = new App(config);
 
   console.log("✅ GitHub App instance created successfully");
   console.log("App ID from instance:", app.appId);
   console.log("App ID type from instance:", typeof app.appId);
+  console.log(
+    "App options:",
+    JSON.stringify(app.octokit?.defaults?.userAgent, null, 2)
+  );
+
+  // Test getting app info
+  try {
+    console.log("\n🧪 Testing App Authentication:");
+    const appInfo = await app.octokit.request("GET /app");
+    console.log("✅ App info retrieved:", appInfo.data.name);
+    console.log("App ID from API:", appInfo.data.id);
+  } catch (authError) {
+    console.error("❌ App authentication failed:", authError.message);
+  }
 } catch (error) {
   console.error("❌ Failed to create GitHub App instance:", error.message);
   console.error("Error stack:", error.stack);
