@@ -19,32 +19,53 @@ export class LLMService {
 
       const prompt = this._createSummaryPrompt(prData, diff, commits);
 
+      // Log prompt details for debugging
+      logger.debug(`Prompt length: ${prompt.length} characters`);
+      logger.debug(`Number of commits: ${commits?.length || 0}`);
+      logger.debug(`Diff length: ${diff?.length || 0} characters`);
+
+      const requestBody = {
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that analyzes code changes and generates clear, professional summaries and changelog entries. You understand conventional commits and can create well-structured changelogs.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        stream: false,
+      };
+
+      logger.debug(
+        `Full request body size: ${
+          JSON.stringify(requestBody).length
+        } characters`
+      );
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           authorization: `Bearer ${token}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a helpful assistant that analyzes code changes and generates clear, professional summaries and changelog entries. You understand conventional commits and can create well-structured changelogs.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          stream: false,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error(
-          `GitHub LLM API error: ${response.status} ${response.statusText}`
-        );
+        // Try to get more detailed error information
+        let errorDetails = `${response.status} ${response.statusText}`;
+        try {
+          const errorBody = await response.text();
+          logger.error(`GitHub Copilot API error response body: ${errorBody}`);
+          errorDetails += ` - ${errorBody}`;
+        } catch (e) {
+          logger.debug("Could not read error response body");
+        }
+
+        throw new Error(`GitHub LLM API error: ${errorDetails}`);
       }
 
       const data = await response.json();
