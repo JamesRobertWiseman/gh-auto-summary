@@ -19,13 +19,34 @@ export class GitHubService {
   }
 
   async getInstallationToken() {
-    const octokit = await this.getOctokit();
+    try {
+      logger.debug(
+        `Getting installation token for installation: ${this.installationId}`
+      );
+      const octokit = await this.getOctokit();
 
-    if (typeof octokit.auth === "function") {
-      const auth = await octokit.auth();
-      return auth.token;
+      if (!octokit) {
+        throw new Error("Failed to get octokit instance");
+      }
+
+      logger.debug(`Octokit auth type: ${typeof octokit.auth}`);
+
+      if (typeof octokit.auth === "function") {
+        const auth = await octokit.auth();
+        logger.debug(`Auth result type: ${typeof auth}`);
+        if (!auth || !auth.token) {
+          throw new Error("Auth function returned invalid token");
+        }
+        return auth.token;
+      } else if (octokit.auth && octokit.auth.token) {
+        return octokit.auth.token;
+      } else {
+        throw new Error("No valid auth token found");
+      }
+    } catch (error) {
+      logger.error(`Failed to get installation token:`, error.message);
+      throw error;
     }
-    return octokit.auth.token;
   }
 
   async getUser() {
@@ -82,14 +103,73 @@ export class GitHubService {
         }
       );
 
-      const commits = data.map((commit) => ({
-        sha: commit.sha.substring(0, 7),
-        message: commit.commit.message,
-        author: commit.commit.author.name,
-        date: commit.commit.author.date,
-      }));
+      // Add safety checks for commit data mapping
+      logger.debug(`Raw commits data length: ${data?.length || 0}`);
+      if (data && data.length > 0) {
+        logger.debug(
+          `First raw commit structure:`,
+          JSON.stringify(data[0], null, 2)
+        );
+      }
 
-      logger.debug(`Fetched ${commits.length} commits for PR #${pullNumber}`);
+      const commits = data
+        .map((commit, index) => {
+          try {
+            // Safety checks for commit structure
+            if (!commit) {
+              logger.warn(`Commit at index ${index} is null/undefined`);
+              return null;
+            }
+
+            if (!commit.sha) {
+              logger.warn(`Commit at index ${index} missing sha:`, commit);
+              return null;
+            }
+
+            if (!commit.commit) {
+              logger.warn(
+                `Commit at index ${index} missing commit object:`,
+                commit
+              );
+              return null;
+            }
+
+            if (!commit.commit.message) {
+              logger.warn(
+                `Commit at index ${index} missing commit message:`,
+                commit.commit
+              );
+              return null;
+            }
+
+            if (!commit.commit.author) {
+              logger.warn(
+                `Commit at index ${index} missing commit author:`,
+                commit.commit
+              );
+              return null;
+            }
+
+            return {
+              sha: commit.sha.substring(0, 7),
+              message: commit.commit.message,
+              author: commit.commit.author.name || "Unknown",
+              date: commit.commit.author.date || new Date().toISOString(),
+            };
+          } catch (error) {
+            logger.error(
+              `Error processing commit at index ${index}:`,
+              error.message
+            );
+            logger.error(`Problematic commit data:`, commit);
+            return null;
+          }
+        })
+        .filter((commit) => commit !== null); // Remove null entries
+
+      logger.debug(
+        `Fetched ${commits.length} valid commits for PR #${pullNumber}`
+      );
       return commits;
     } catch (error) {
       logger.error(
