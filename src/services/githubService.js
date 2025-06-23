@@ -36,30 +36,36 @@ export class GitHubService {
         `Getting installation token for installation: ${this.installationId}`
       );
 
-      // Use the GitHub App service directly to get the installation token
-      // This is more reliable than trying to extract it from the octokit instance
-      const installationOctokit = await githubAppService.getInstallationOctokit(
-        this.installationId
+      // Alternative approach: Use the GitHub App JWT to directly create an installation token
+      // This bypasses the problematic auth function in @octokit/auth-app
+
+      // Get the app JWT token
+      const appAuth = await githubAppService.app.octokit.auth({ type: "app" });
+      if (!appAuth || !appAuth.token) {
+        throw new Error("Failed to get app JWT token");
+      }
+
+      logger.debug("Got app JWT token, creating installation access token...");
+
+      // Make direct API call to create installation access token
+      const response = await githubAppService.app.octokit.request(
+        "POST /app/installations/{installation_id}/access_tokens",
+        {
+          installation_id: this.installationId,
+          headers: {
+            authorization: `Bearer ${appAuth.token}`,
+          },
+        }
       );
 
-      if (
-        !installationOctokit ||
-        typeof installationOctokit.auth !== "function"
-      ) {
-        throw new Error(
-          "Failed to get valid installation octokit with auth function"
-        );
+      if (!response.data || !response.data.token) {
+        throw new Error("Failed to get installation token from API response");
       }
 
-      logger.debug("Calling installation octokit auth function...");
-      const auth = await installationOctokit.auth();
-
-      if (!auth || !auth.token) {
-        throw new Error("Failed to get installation token from auth");
-      }
-
-      logger.debug("Successfully retrieved installation token");
-      return auth.token;
+      logger.debug(
+        "Successfully retrieved installation token via direct API call"
+      );
+      return response.data.token;
     } catch (error) {
       logger.error(`Failed to get installation token:`, error.message);
       logger.error(`Error stack:`, error.stack);
