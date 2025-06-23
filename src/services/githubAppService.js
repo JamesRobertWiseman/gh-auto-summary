@@ -6,6 +6,17 @@ const logger = createLogger("GitHubAppService");
 
 export class GitHubAppService {
   constructor() {
+    logger.debug(`Initializing GitHub App with ID: ${config.github.appId}`);
+    logger.debug(
+      `Private key length: ${config.github.privateKey?.length || 0} characters`
+    );
+    logger.debug(
+      `Private key starts with: ${
+        config.github.privateKey?.substring(0, 30) || "undefined"
+      }...`
+    );
+    logger.debug(`Webhook secret set: ${!!config.github.webhookSecret}`);
+
     this.app = new App({
       appId: config.github.appId,
       privateKey: config.github.privateKey,
@@ -13,19 +24,37 @@ export class GitHubAppService {
         secret: config.github.webhookSecret,
       },
     });
+    logger.debug(`GitHub App instance created successfully`);
   }
 
   async getInstallationOctokit(installationId) {
     try {
+      logger.debug(
+        `Getting installation octokit for installation ID: ${installationId}`
+      );
+
+      // Validate installation ID
+      if (!installationId) {
+        throw new Error("Installation ID is required");
+      }
+
+      logger.debug(
+        `Calling this.app.getInstallationOctokit(${installationId})...`
+      );
       const installationOctokit = await this.app.getInstallationOctokit(
         installationId
       );
+
+      logger.debug(`Installation octokit created successfully`);
+      logger.debug(`Octokit auth type: ${typeof installationOctokit?.auth}`);
+
       return installationOctokit;
     } catch (error) {
       logger.error(
         `Failed to get installation octokit for ${installationId}:`,
         error.message
       );
+      logger.error(`Error stack:`, error.stack);
       throw error;
     }
   }

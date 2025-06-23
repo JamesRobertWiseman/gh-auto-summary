@@ -11,9 +11,21 @@ export class GitHubService {
 
   async getOctokit() {
     if (!this.octokit) {
-      this.octokit = await githubAppService.getInstallationOctokit(
-        this.installationId
-      );
+      try {
+        logger.debug(
+          `Getting installation octokit for installation: ${this.installationId}`
+        );
+        this.octokit = await githubAppService.getInstallationOctokit(
+          this.installationId
+        );
+        logger.debug(`Successfully created installation octokit`);
+      } catch (error) {
+        logger.error(
+          `Failed to get installation octokit for ${this.installationId}:`,
+          error.message
+        );
+        throw error;
+      }
     }
     return this.octokit;
   }
