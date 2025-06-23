@@ -1,57 +1,31 @@
-import { Octokit } from "@octokit/core";
-import express from "express";
-import { Readable } from "node:stream";
+import app from "./src/app.js";
+import { config } from "./src/config/index.js";
+import { logger } from "./src/utils/logger.js";
 
-const app = express()
+const port = config.port;
 
-app.get("/", (req, res) => {
-  res.send("Ahoy, matey! Welcome to the Blackbeard Pirate GitHub Copilot Extension!")
+// Graceful shutdown handling
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received, shutting down gracefully");
+  process.exit(0);
 });
 
-app.post("/", express.json(), async (req, res) => {
-  // Identify the user, using the GitHub API token provided in the request headers.
-  const tokenForUser = req.get("X-GitHub-Token");
-  const octokit = new Octokit({ auth: tokenForUser });
-  const user = await octokit.request("GET /user");
-  console.log("User:", user.data.login);
+process.on("SIGINT", () => {
+  logger.info("SIGINT received, shutting down gracefully");
+  process.exit(0);
+});
 
-  // Parse the request payload and log it.
-  const payload = req.body;
-  console.log("Payload:", payload);
+// Start server
+const server = app.listen(port, () => {
+  logger.info(`${config.app.name} v${config.app.version}`);
+  logger.info(`Server running on port ${port}`);
+  logger.info(`Health check available at http://localhost:${port}/health`);
+  logger.info(`Webhook endpoint available at http://localhost:${port}/webhook`);
+  logger.info(`Environment: ${process.env.NODE_ENV || "development"}`);
+});
 
-  // Insert a special pirate-y system message in our message list.
-  const messages = payload.messages;
-  messages.unshift({
-    role: "system",
-    content: "You are a helpful assistant that replies to user messages as if you were the Blackbeard Pirate.",
-  });
-  messages.unshift({
-    role: "system",
-    content: `Start every response with the user's name, which is @${user.data.login}`,
-  });
-
-  // Use Copilot's LLM to generate a response to the user's messages, with
-  // our extra system messages attached.
-  const copilotLLMResponse = await fetch(
-    "https://api.githubcopilot.com/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${tokenForUser}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        messages,
-        stream: true,
-      }),
-    }
-  );
-
-  // Stream the response straight back to the user.
-  Readable.from(copilotLLMResponse.body).pipe(res);
-})
-
-const port = Number(process.env.PORT || '3000')
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`)
+// Handle server errors
+server.on("error", (error) => {
+  logger.error("Server error:", error.message);
+  process.exit(1);
 });

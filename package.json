@@ -1,14 +1,28 @@
 {
-  "name": "blackbeard-extension",
+  "name": "github-auto-summary-extension",
   "private": "true",
-  "description": "A basic example of a Copilot Extension",
+  "description": "A GitHub Copilot Extension that automatically generates PR summaries and changelogs",
+  "version": "1.0.0",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "type": "module",
   "dependencies": {
     "@octokit/core": "^6.1.2",
-    "express": "^4.19.2"
-  }
+    "express": "^4.19.2",
+    "dotenv": "^16.3.1"
+  },
+  "keywords": [
+    "github",
+    "copilot",
+    "extension",
+    "automation",
+    "pr",
+    "summary",
+    "changelog"
+  ],
+  "author": "",
+  "license": "MIT"
 }
