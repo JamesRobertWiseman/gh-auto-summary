@@ -5,8 +5,12 @@ dotenv.config();
 export const config = {
   port: Number(process.env.PORT || 3000),
   github: {
-    token: process.env.GITHUB_TOKEN,
+    appId: process.env.GITHUB_APP_ID,
+    privateKey: process.env.GITHUB_PRIVATE_KEY,
     webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    appSlug: process.env.GITHUB_APP_SLUG || "github-pr-auto-summary",
   },
   api: {
     copilotBaseUrl: "https://api.githubcopilot.com",
@@ -18,7 +22,11 @@ export const config = {
 };
 
 export function validateConfig() {
-  const required = [{ key: "GITHUB_TOKEN", value: config.github.token }];
+  const required = [
+    { key: "GITHUB_APP_ID", value: config.github.appId },
+    { key: "GITHUB_PRIVATE_KEY", value: config.github.privateKey },
+    { key: "GITHUB_WEBHOOK_SECRET", value: config.github.webhookSecret },
+  ];
 
   const missing = required.filter(({ value }) => !value);
 
