@@ -1,6 +1,5 @@
 import { PR_CONSTANTS } from "../utils/constants.js";
 import { createLogger } from "../utils/logger.js";
-import { githubService } from "./githubService.js";
 import { llmService } from "./llmService.js";
 
 const logger = createLogger("PRService");
@@ -33,7 +32,7 @@ export class PRService {
     return hasTag;
   }
 
-  async processPullRequest(owner, repo, pullRequest) {
+  async processPullRequest(owner, repo, pullRequest, githubService) {
     try {
       logger.info(`Processing PR #${pullRequest.number} in ${owner}/${repo}`);
 
@@ -46,10 +45,13 @@ export class PRService {
         `Retrieved ${commits.length} commits for PR #${pullRequest.number}`
       );
 
+      const token = await githubService.getInstallationToken();
+
       const generatedContent = await llmService.generatePRSummary(
         pullRequest,
         diff,
-        commits
+        commits,
+        token
       );
 
       await this.updatePRWithSummary(
@@ -57,7 +59,8 @@ export class PRService {
         repo,
         pullRequest.number,
         pullRequest.body || "",
-        generatedContent
+        generatedContent,
+        githubService
       );
 
       logger.info(`Successfully processed PR #${pullRequest.number}`);
@@ -81,7 +84,8 @@ export class PRService {
     repo,
     prNumber,
     currentBody,
-    generatedContent
+    generatedContent,
+    githubService
   ) {
     try {
       const newBody = this._insertOrUpdateSummary(

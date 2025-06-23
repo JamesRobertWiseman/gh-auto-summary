@@ -1,23 +1,26 @@
 {
-  "name": "github-auto-summary-extension",
+  "name": "github-pr-auto-summary",
   "private": "true",
-  "description": "A GitHub Copilot Extension that automatically generates PR summaries and changelogs",
+  "description": "A GitHub App that automatically generates PR summaries and changelogs using GitHub Copilot",
   "version": "1.0.0",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:local": "node test/local-test-server.js",
+    "test:webhook": "node test/test-webhook.js"
   },
   "type": "module",
   "dependencies": {
     "@octokit/core": "^6.1.2",
+    "@octokit/app": "^15.0.0",
+    "@octokit/auth-app": "^7.0.0",
     "express": "^4.19.2",
     "dotenv": "^16.3.1"
   },
   "keywords": [
     "github",
     "copilot",
-    "extension",
     "automation",
     "pr",
     "summary",

@@ -1,17 +1,37 @@
-import { Octokit } from "@octokit/core";
-import { config } from "../config/index.js";
 import { createLogger } from "../utils/logger.js";
+import { githubAppService } from "./githubAppService.js";
 
 const logger = createLogger("GitHubService");
 
 export class GitHubService {
-  constructor(token = config.github.token) {
-    this.octokit = new Octokit({ auth: token });
+  constructor(installationId) {
+    this.installationId = installationId;
+    this.octokit = null;
+  }
+
+  async getOctokit() {
+    if (!this.octokit) {
+      this.octokit = await githubAppService.getInstallationOctokit(
+        this.installationId
+      );
+    }
+    return this.octokit;
+  }
+
+  async getInstallationToken() {
+    const octokit = await this.getOctokit();
+
+    if (typeof octokit.auth === "function") {
+      const auth = await octokit.auth();
+      return auth.token;
+    }
+    return octokit.auth.token;
   }
 
   async getUser() {
     try {
-      const response = await this.octokit.request("GET /user");
+      const octokit = await this.getOctokit();
+      const response = await octokit.request("GET /user");
       return response.data;
     } catch (error) {
       logger.error("Failed to get user information:", error.message);
@@ -22,8 +42,9 @@ export class GitHubService {
   async getPullRequestDiff(owner, repo, pullNumber) {
     try {
       logger.debug(`Fetching diff for PR #${pullNumber} in ${owner}/${repo}`);
+      const octokit = await this.getOctokit();
 
-      const { data } = await this.octokit.request(
+      const { data } = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}",
         {
           owner,
@@ -50,8 +71,9 @@ export class GitHubService {
       logger.debug(
         `Fetching commits for PR #${pullNumber} in ${owner}/${repo}`
       );
+      const octokit = await this.getOctokit();
 
-      const { data } = await this.octokit.request(
+      const { data } = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}/commits",
         {
           owner,
@@ -81,16 +103,14 @@ export class GitHubService {
   async updatePullRequest(owner, repo, pullNumber, updates) {
     try {
       logger.debug(`Updating PR #${pullNumber} in ${owner}/${repo}`);
+      const octokit = await this.getOctokit();
 
-      await this.octokit.request(
-        "PATCH /repos/{owner}/{repo}/pulls/{pull_number}",
-        {
-          owner,
-          repo,
-          pull_number: pullNumber,
-          ...updates,
-        }
-      );
+      await octokit.request("PATCH /repos/{owner}/{repo}/pulls/{pull_number}", {
+        owner,
+        repo,
+        pull_number: pullNumber,
+        ...updates,
+      });
 
       logger.info(`Successfully updated PR #${pullNumber}`);
     } catch (error) {
@@ -101,7 +121,8 @@ export class GitHubService {
 
   async getPullRequest(owner, repo, pullNumber) {
     try {
-      const { data } = await this.octokit.request(
+      const octokit = await this.getOctokit();
+      const { data } = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}",
         {
           owner,
@@ -116,6 +137,12 @@ export class GitHubService {
       throw error;
     }
   }
-}
 
-export const githubService = new GitHubService();
+  static async createForRepository(owner, repo) {
+    const installationId = await githubAppService.getInstallationId(
+      owner,
+      repo
+    );
+    return new GitHubService(installationId);
+  }
+}

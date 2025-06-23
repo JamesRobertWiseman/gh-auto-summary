@@ -1,14 +1,27 @@
-# GitHub Auto Summary Extension
+# GitHub PR Auto Summary App
 
-This GitHub Copilot extension automatically generates PR summaries and changelogs when pull requests contain the `[GHAutoSummary]` tag.
+This GitHub App automatically generates PR summaries and changelogs using GitHub Copilot when pull requests contain the `[GHAutoSummary]` tag. Users can easily install it on their repositories with one click.
 
 ## Features
 
-- 🤖 **Auto PR Summary**: Automatically generates summaries and changelogs for tagged PRs
+- 🤖 **Auto PR Summary**: Automatically generates summaries and changelogs for tagged PRs using GitHub Copilot
 - 📝 **Commit-Based Changelog**: Uses commit messages to create structured changelogs
 - 🎯 **Conventional Commits**: Supports conventional commit format for better changelog organization
 - 🔄 **Webhook Integration**: Responds to GitHub PR events in real-time
 - 🛡️ **Secure**: Uses GitHub webhook signature verification
+
+## How It Works
+
+1. **Add the Magic Tag**: Include `[GHAutoSummary]` in your PR title or description
+2. **Automatic Analysis**: The app analyzes your commits and code changes
+3. **AI-Powered Summary**: Uses GitHub Copilot API to generate comprehensive summaries
+4. **PR Update**: Your PR gets updated with the generated summary and changelog
+
+**What the app analyzes:**
+- 📝 All commit messages in the PR
+- 🔍 Code diffs and file changes
+- 🎯 Conventional commits for structured categorization
+- 📊 Change statistics and impact
 
 ## Enhanced Changelog Generation
 
@@ -99,16 +112,60 @@ The application follows a layered architecture pattern:
 
 ## Setup
 
-### 1. Environment Variables
+### For App Developers
 
-Create a `.env` file or set these environment variables:
+#### 1. Create a GitHub App
+
+1. Go to GitHub Settings → Developer settings → GitHub Apps → New GitHub App
+2. Fill out the basic information:
+   - **App name**: `GitHub Auto Summary` (or your preferred name)
+   - **Description**: `Automatically generates PR summaries and changelogs`
+   - **Homepage URL**: `https://your-app-domain.vercel.app`
+   - **User authorization callback URL**: `https://your-app-domain.vercel.app/auth/callback`
+   - **Setup URL (optional)**: `https://your-app-domain.vercel.app/auth/installation/callback`
+   - **Webhook URL**: `https://your-app-domain.vercel.app/webhook`
+   - **Webhook secret**: Generate a secure secret
+
+3. Set Permissions:
+   - **Repository permissions**:
+     - Pull requests: `Read & Write`
+     - Contents: `Read`
+     - Metadata: `Read`
+   - **Subscribe to events**:
+     - Pull request
+     - Installation
+     - Installation repositories
+
+4. Installation:
+   - ✅ Check "Any account can install this GitHub App"
+
+#### Understanding the URLs
+
+- **Homepage URL**: Where users learn about your app
+- **User authorization callback URL**: Handles OAuth flows when users authorize your app to act on their behalf  
+- **Setup URL**: Where users are redirected after installing your app (shows installation success)
+- **Webhook URL**: Receives GitHub events (PR created, updated, etc.)
+
+These callback URLs enable:
+- Smooth installation experience
+- User authorization flows  
+- Installation success confirmation
+- Proper OAuth handling
+
+#### 2. Environment Variables
+
+Set these environment variables in your deployment platform (e.g., Vercel):
 
 ```bash
-# Required: GitHub token with repo access
-GITHUB_TOKEN=your_github_token_here
+# GitHub App Configuration (get from your GitHub App settings)
+GITHUB_APP_ID=123456
+GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END RSA PRIVATE KEY-----"
+GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
+GITHUB_CLIENT_ID=Iv1.your_client_id
+GITHUB_CLIENT_SECRET=your_client_secret
 
-# Optional: Webhook secret for security (recommended for production)
-GITHUB_WEBHOOK_SECRET=your_webhook_secret
+# Optional: GitHub App slug (used for callback URLs)
+GITHUB_APP_SLUG=github-pr-auto-summary
 
 # Optional: Port (defaults to 3000)
 PORT=3000
@@ -117,38 +174,76 @@ PORT=3000
 NODE_ENV=development
 ```
 
-You can copy `.env.example` to `.env` and update the values.
-
-### 2. GitHub Token Setup
-
-1. Go to GitHub Settings → Developer settings → Personal access tokens
-2. Create a new token with these permissions:
-   - `repo` (Full control of private repositories)
-   - `pull_requests:write` (Write access to pull requests)
-3. Add the token to your `GITHUB_TOKEN` environment variable
-
-### 3. Webhook Configuration
-
-1. In your GitHub repository, go to Settings → Webhooks
-2. Click "Add webhook"
-3. Set Payload URL to: `https://your-domain.com/webhook`
-4. Set Content type to: `application/json`
-5. Set Secret to your `GITHUB_WEBHOOK_SECRET` (optional but recommended)
-6. Select "Pull requests" event
-7. Click "Add webhook"
-
-### 4. Deploy and Run
+#### 3. Deploy the App
 
 ```bash
 # Install dependencies
 npm install
 
-# Run in development (with auto-reload)
-npm run dev
+# For Vercel deployment
+vercel --prod
 
-# Run in production
-npm start
+# For local development
+npm run dev
 ```
+
+#### 4. Setting Environment Variables in Vercel
+
+```bash
+# Set all GitHub App environment variables
+vercel env add GITHUB_APP_ID production
+vercel env add GITHUB_PRIVATE_KEY production
+vercel env add GITHUB_WEBHOOK_SECRET production
+vercel env add GITHUB_CLIENT_ID production
+vercel env add GITHUB_CLIENT_SECRET production
+
+# Optional: Set the app slug for callback URLs
+vercel env add GITHUB_APP_SLUG production
+
+# Deploy with new environment variables
+vercel --prod
+```
+
+### For End Users
+
+#### Installing the GitHub App
+
+1. **Visit the App URL**: Go to `https://your-app-domain.vercel.app`
+2. **Click Install**: Follow the installation link
+3. **Select Repositories**: Choose which repositories to install the app on
+4. **Grant Permissions**: Review and approve the requested permissions
+
+#### Using the App
+
+1. **Create a Pull Request** in any repository where the app is installed
+2. **Add the Magic Tag**: Include `[GHAutoSummary]` in your PR title or description
+3. **Automatic Processing**: The app will automatically:
+   - Analyze your commits and code changes
+   - Generate a comprehensive summary
+   - Create a structured changelog
+   - Update your PR description
+
+#### Example Usage
+
+**PR Title:**
+
+```markdown
+[GHAutoSummary] Add user authentication feature
+```
+
+**PR Description:**
+
+```markdown
+This PR adds user authentication functionality.
+
+[GHAutoSummary]
+
+- Added login/logout endpoints  
+- Implemented JWT token handling
+- Added user session management
+```
+
+The app will automatically update your PR with a detailed summary and changelog!
 
 ## Usage
 
