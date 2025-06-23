@@ -2,7 +2,7 @@ export const PR_CONSTANTS = {
   AUTO_SUMMARY_TAG: "[GHAutoSummary]",
   SUMMARY_MARKER: "<!-- AUTO-GENERATED-SUMMARY -->",
   END_MARKER: "<!-- END-AUTO-GENERATED-SUMMARY -->",
-  VALID_ACTIONS: ["opened", "synchronize"],
+  VALID_ACTIONS: ["opened", "synchronize", "reopened"],
   MAX_DIFF_LENGTH: 8000,
 };
 
